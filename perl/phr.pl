@@ -13,7 +13,9 @@ use HTTP::Response;
 use HTML::TreeBuilder::XPath;
 use JSON -support_by_pp;
 use Data::Dumper;
-use EhrEntityScraper::Scrapers;
+
+# Add new instances of scrapers here.
+use EhrEntityScraper::Stanford;
 
 my ($dbh, $sth);
 $dbh = DBI->connect ('dbi:mysql:database=phr', 'root', 'root', {RaiseError => 1, AutoCommit => 1});
@@ -32,13 +34,14 @@ sub scrape_for_user_ehr_entity {
         my $ehr_entity_id = $ehr_entity->{$entity_name}{id};
         my $user_ehr   = $dbh->selectall_hashref("select * from user_has_these_ehrs where userId=? and ehrEntityId=?", 
                                                "userId", {}, $user_id, $ehr_entity_id);
-        my $user_ehr_entity_scraper = EhrEntityScraper::Scrapers::getScraper($ehr_entity->{$entity_name}{name});
-        $user_ehr_entity_scraper->initialize($user_ehr->{$user_id}{ehrUserId},
-                                             $user_ehr->{$user_id}{ehrPassword},
-                                             $ehr_entity->{$entity_name}{url});
-        if ($user_ehr_entity_scraper->login() ||
-            $user_ehr_entity_scraper->postprocess()) {
-        }
+        my $user_ehr_entity_scraper = "EhrEntityScraper::$entity_name"->new({
+                                                                             user_id => $user_id,
+                                                                             ehr_entity_id => $ehr_entity_id,
+                                                                             ehr_entity_user => $user_ehr->{$user_id}{ehrUserId},
+                                                                             ehr_entity_pass => $user_ehr->{$user_id}{ehrPassword},
+                                                                             ehr_entity_url  => $ehr_entity->{$entity_name}{url}
+                                                                            });
+        $user_ehr_entity_scraper->scrape();
         print " $entity_name";
     }
     print " ]";
@@ -52,6 +55,5 @@ sub write_user {
 }
 
 sub get_ua {
-    return new LWP::UserAgent(agent => 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/535.1 (KHTML, like Gecko) Ubuntu/10.10 ' . 
-                              'Chromium/14.0.808.0 Chrome/14.0.808.0 Safari/535.1');
+    return 
 }

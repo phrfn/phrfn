@@ -47,11 +47,15 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS providers (
   id bigint unsigned NOT NULL auto_increment,
   status enum('A','N','D') default NULL,
+/*
   email varchar(50) NOT NULL,
   emailHash varchar(50) NOT NULL,
+*/
+  email varchar(50) default NULL,
+  emailHash varchar(50) default NULL,
   firstName varchar(50) NULL,
   lastName varchar(50) NULL,
-  fullName varchar(100) NULL,
+  fullName varchar(100) NOT NULL,
   photo varchar(255) default NULL,
   address1 varchar(50) default NULL,
   address2 varchar(50) default NULL,
@@ -462,11 +466,11 @@ CREATE TABLE IF NOT EXISTS user_tests (
   ehrEntityId int unsigned NOT NULL,
   testName varchar(50) DEFAULT NULL,
   dateOrdered date DEFAULT NULL,
-  providerName varchar(50) DEFAULT NULL,
   providerId bigint unsigned DEFAULT NULL,
   foreign key (userId) references users(id),
   foreign key (ehrEntityId) references ehr_entities(id),
   foreign key (providerId) references providers(id),
+  UNIQUE KEY test_UNIQUE (userId, testName, providerId, dateOrdered),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
@@ -514,19 +518,19 @@ CREATE TABLE IF NOT EXISTS user_test_components (
   userId bigint unsigned NOT NULL,
   ehrEntityId int unsigned NOT NULL,
   userTestId bigint unsigned NOT NULL,
-  testType enum('lab', 'imaging'),
-  testComponentName varchar(50) DEFAULT NULL,
+  testType enum('lab', 'imaging'), -- imaging if name prefix is XR or CT
+  testComponentName varchar(50) DEFAULT NULL, -- next 4 from one row in labdetail -> Component results (labdetal PAMF)
   userValue varchar(20) DEFAULT NULL,
   standardRange varchar(20) DEFAULT NULL,
   units varchar(20) DEFAULT NULL,
   flag varchar(20) DEFAULT NULL,
-  testComponentResult varchar(100) DEFAULT NULL,
-  dateSpecimenCollected date DEFAULT NULL,
-  dateResultProvided date DEFAULT NULL,
-  imagingNarrative varchar(1024) DEFAULT NULL,
-  imagingImpression varchar(1024) DEFAULT NULL,
-  orderingProviderName varchar(50) DEFAULT NULL,
-  providerId bigint unsigned DEFAULT NULL,
+  testComponentResult varchar(100) DEFAULT NULL, -- row following the above row (PAMF)
+  dateSpecimenCollected date DEFAULT NULL, -- labdetail PAMF
+  dateResultProvided date DEFAULT NULL,    -- labdetail PAMF
+  imagingNarrative varchar(1024) DEFAULT NULL, -- labdetail Stanford
+  imagingImpression varchar(1024) DEFAULT NULL, -- labdetail Stanford
+  -- orderingProviderName varchar(50) DEFAULT NULL, -- labdetail PAMF
+  providerId bigint unsigned DEFAULT NULL, -- for the above orderingProviderName ??
   foreign key (userId) references users(id),
   foreign key (ehrEntityId) references ehr_entities(id),
   foreign key (userTestId) references user_tests(id),

@@ -14,14 +14,30 @@ sub new {
     return $self;
 }
 
+sub canned_config {
+    my ($self) = @_;
+
+    return {
+            save_to_canned   => $self->{save_to_canned},
+            read_from_canned => $self->{read_from_canned},
+           };
+}
+
+sub set_canned_config {
+    my ($self, $config) = @_;
+
+    $self->{save_to_canned}  = $config->{save_to_canned};
+    $self->{read_from_canned}= $config->{read_from_canned};
+}
+
 sub initialize {
     my ($self, $args_hash) = @_;
 
     @$self{keys %$args_hash} = values %$args_hash;
     $self->{dbh} = DBI->connect ('dbi:mysql:database=phr', 'root', 'root', {RaiseError => 1, AutoCommit => 1});
 
-    $self->{save_to_canned}  = defined($args_hash->{save_to_canned})? $args_hash->{save_to_canned} : 0;
-    $self->{read_from_canned}= defined($args_hash->{read_from_canned})? $args_hash->{read_from_canned} : 1;
+    $self->set_canned_config({save_to_canned => defined($args_hash->{save_to_canned})? $args_hash->{save_to_canned} : 1,
+                              read_from_canned => defined($args_hash->{read_from_canned})? $args_hash->{read_from_canned} : 1});
 
     $self->{canned_dir}      = "/var/tmp/canned-ehr-entity-scraper";
     $self->{cookie_dir}      = "/var/tmp/cookies-ehr-entity-scraper";
@@ -35,7 +51,7 @@ sub initialize {
                                                autosave => 1,
                                                ignore_discard => 1,));
 
-    $self->{resp} = $self->ua_get($self->{ehr_entity_url});
+    $self->{login_page} = $self->ua_get($self->{ehr_entity_url});
 }
 
 sub initialize_canned_dir {
@@ -167,7 +183,10 @@ sub scrape {
     my ($self) = @_;
 
     $self->login();
-    $self->medication_history();
+   # $self->health_summary();
+   # $self->medical_history();
+   # $self->appointments();
+    $self->tests();
     $self->postprocess();
 }
 
@@ -183,6 +202,14 @@ sub trim {
     $string =~ s/^\s+//;
     $string =~ s/\s+$//;
     return $string;
+}
+
+sub trim_undef {
+    my ($self, $string) = @_;
+
+    my $ret = $self->trim($string);
+    return undef if (length($ret) == 0);
+    return $ret;
 }
 
 1;

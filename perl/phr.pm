@@ -23,7 +23,7 @@ $dbh = DBI->connect ('dbi:mysql:database=phr', 'root', 'root', {RaiseError => 1,
 __PACKAGE__->scrape_for_user_ehr_entity(@ARGV) unless caller();
 
 sub scrape_for_user_ehr_entity {
-    my ($user_email, @ehr_entities) = @_;
+    my ($package, $user_email, @ehr_entities) = @_;
     my $user = $dbh->selectall_hashref("select * from users where email=?", "email", {}, $user_email);
     my $user_id = $user->{$user_email}{id};
 

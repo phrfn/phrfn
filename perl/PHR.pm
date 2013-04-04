@@ -3,6 +3,8 @@
 #
 # $Id: $
 
+package PHR;
+
 use strict;
 use warnings;
 

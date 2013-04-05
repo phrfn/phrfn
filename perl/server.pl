@@ -1,4 +1,3 @@
-use Proc::Background;
 use PHR;
 use HTTP::Daemon;
 use threads;

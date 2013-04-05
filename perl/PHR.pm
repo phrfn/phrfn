@@ -18,6 +18,7 @@ use Data::Dumper;
 
 # Add new instances of scrapers here.
 use EhrEntityScraper::Stanford;
+use EhrEntityScraper::PAMF;
 
 my ($dbh, $sth);
 $dbh = DBI->connect ('dbi:mysql:database=phr', 'root', 'root', {RaiseError => 1, AutoCommit => 1});

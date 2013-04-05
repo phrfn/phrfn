@@ -15,61 +15,6 @@ use URI;
 
 use EhrEntityScraper::Util qw(trim trim_undef parse_visit_type);
 
-sub login {
-    my $self = shift;
-
-    my $form = $self->get_login_form();
-    my $post_url = $self->{ehr_entity_url} . $form->[0]->attr('action');
-    my @inputs = $form->[0]->look_down("_tag", "input");
-    my $post_params = $self->make_name_values(\@inputs, {
-                                                         Login     => $self->{ehr_entity_user},
-                                                         Password  => $self->{ehr_entity_pass},
-                                                         jsenabled => 1,
-                                                         'submit' => 'Sign In',
-                                                       });
-    # always perform real login regardless of canned config
-    my $saved_canned_config = $self->canned_config();
-    $self->set_canned_config({save_to_canned => 0, read_from_canned => 0});
-    $self->{resp} = $self->ua_post($post_url, $post_params);
-    $self->set_canned_config($saved_canned_config);
-}
-
-#
-# sometimes you need to get the login page twice to get the right form
-# 
-sub get_login_form {
-    my $self = shift;
-    my ($form, $action);
-
-    $self->{login_page} = $self->ua_get($self->{ehr_entity_url});
-    $self->{tree} = HTML::TreeBuilder::XPath->new_from_content($self->{login_page}->decoded_content);
-    $form = $self->{tree}->findnodes('/html/body//div[@id="defaultForm"]/form');
-    $action = (defined($form) && defined($form->[0])) ? $form->[0]->attr('action') : undef;
-    if (!defined($form) || !defined($action)) {
-        $form = $action = undef;
-        $self->{login_page} = $self->ua_get($self->{ehr_entity_url});
-        $self->{tree} = HTML::TreeBuilder::XPath->new_from_content($self->{login_page}->decoded_content);
-        $form = $self->{tree}->findnodes('/html/body//div[@id="defaultForm"]/form');
-        $action = (defined($form) && defined($form->[0])) ? $form->[0]->attr('action') : undef;
-        if (!defined($form) || !defined($action)) {
-            die "could not get login page";
-        }
-    }
-    return $form;
-}
-
-sub health_summary {
-    my $self = shift;
-    my $get_url = URI->new_abs("./inside.asp?mode=snapshot", $self->{resp}->base());
-
-    $self->{resp} = $self->ua_get($get_url);
-    $self->{tree} = HTML::TreeBuilder::XPath->new_from_content($self->{resp}->decoded_content);
-
-    $self->do_medications();
-    $self->do_allergies();
-    $self->do_immunizations();
-}
-
 sub medical_history {
     my $self = shift;
     my $get_url = URI->new_abs("./inside.asp?mode=histories", $self->{resp}->base());
@@ -111,7 +56,7 @@ sub tests {
                             providerId               => $provider_id,
                            };
 
-            my $test_id = $self->add_tests($test_obj);
+            my $test_id = $self->upsert_test($test_obj);
             $self->test_components($test_id, $test_obj, $test_href);
         }
         my $tfoot_divs = $self->{tree}->findnodes('/html/body//tfoot/div');
@@ -156,7 +101,7 @@ sub hospital_visits {
             $visit_obj->{providerType}       = "inpatient";
             $visit_obj->{dischargeDateTime}  = forward_slash_datetime(trim_undef($tds[0]->as_trimmed_text));
 
-            my $visit_id = $self->add_to_user_visits($visit_obj);
+            my $visit_id = $self->upsert_user_visit($visit_obj);
         }
 
         my $tfoot_divs = $self->{tree}->findnodes('/html/body//tfoot//div');
@@ -197,7 +142,7 @@ sub provider_visits {
             $visit_obj->{providerType}       = "outpatient";
             $visit_obj->{dischargeDateTime}  = undef;
 
-            my $visit_id = $self->add_to_user_visits($visit_obj);
+            my $visit_id = $self->upsert_user_visit($visit_obj);
 
 
             $get_url = URI->new_abs($visit_href, $self->{resp}->base());
@@ -283,7 +228,7 @@ sub provider_visits {
                     $visit_details_obj->{surgery} = 'Y';
                 }
             }
-            my $visit_detail_id = $self->add_to_user_visit_details($visit_details_obj);
+            my $visit_detail_id = $self->upsert_visit_detail($visit_details_obj);
 
             $self->add_to_user_visit_diagnosis($visit_diagnosis_objs, $visit_detail_id);
             $self->add_to_user_visit_tests($visit_tests_objs, $visit_detail_id);
@@ -413,10 +358,6 @@ sub do_medications {
         my $prescribing_provider_id;
         my $genericname;
 
-        my $start_date;                                             # XXX
-        my $end_date;                                               # XXX
-        my $status;                                                 # XXX
-
         if ($instructions =~ m/^Instructions: (.*)/) {
             $instructions = trim($1);
         }
@@ -464,27 +405,8 @@ sub do_allergies {
                            allergen      => $allergen,
                            reaction      => $reaction,
                            severity      => undef,
-                           reporteedDate => undef,
+                           reportedDate  => undef,
                           });
-    }
-}
-
-sub do_immunizations {
-    my ($self) = @_;
-
-    my $immunizations = $self->{tree}->findnodes('/html/body//div[@id="immunizationform"]/div/table//tr');
-    foreach my $immunization (@$immunizations) {
-        my @tds = $immunization->look_down('_tag', 'td');
-        next if (scalar(@tds) != 2);
-        my $kind      = $tds[0]->as_trimmed_text;
-        my $done_date = $tds[1]->as_trimmed_text;
-        my @done_date = split("/", $done_date);
-
-        $self->add_immunization({
-                                 immunizationName      => $kind,
-                                 dueDateOrTimeFrame      => undef,
-                                 doneDate      => sprintf("%d-%02d-%02d", $done_date[2], $done_date[0], $done_date[1]),
-                                });
     }
 }
 
@@ -563,20 +485,6 @@ sub get_provider_id {
     return undef;
 }
 
-sub get_test_id {
-    my ($self, $data) = @_;
-
-    my $tests;
-    $tests = $self->{dbh}->selectall_hashref("select * from user_tests where testName=? and dateOrdered=? and providerId=?", "id", {},
-                                             $data->{testName}, $data->{dateOrdered}, $data->{providerId});
-
-    if (defined($tests) && scalar(keys %$tests) == 1) {
-        my @ids = keys %$tests;
-        return $ids[0];
-    }
-    return undef;
-}
-
 sub upsert_provider {
     my ($self, $data) = @_;
     my $sth;
@@ -607,6 +515,21 @@ sub upsert_provider {
 
     $sth->execute;
     return $sth->{mysql_insertid};
+}
+
+sub get_test_id {
+    my ($self, $data) = @_;
+
+    my $tests;
+    $tests = $self->{dbh}->selectall_hashref("select * from user_tests where userId=? and ehrEntityId=? and testName=? and dateOrdered=? and providerId=?",
+                                             "id", {}, $self->{user_id}, $self->{ehr_entity_id}, $data->{testName}, $data->{dateOrdered},
+                                             $data->{providerId});
+
+    if (defined($tests) && scalar(keys %$tests) == 1) {
+        my @ids = keys %$tests;
+        return $ids[0];
+    }
+    return undef;
 }
 
 sub upsert_test {
@@ -735,31 +658,6 @@ sub add_medical_history {
     $sth->execute;
 }
 
-sub add_tests {
-    my ($self, $data) = @_;
-
-    # keep number of attributes in sync with the schema user_medical_history
-    die "Invalid user_tests object.  Incorrect number of keys" if (scalar(keys %$data) != 3);
-
-    my $sth = $self->{dbh}->prepare("insert into user_tests(" .
-                                    "userId, ehrEntityId," .
-                                    "testName, dateOrdered, providerId" .
-                                    ") " .
-                                    "values(" .
-                                    "?, ?, ?, ?, ?" .
-                                    ") on duplicate key update userId=?");
-    $sth->bind_param(1,  $self->{user_id});
-    $sth->bind_param(2,  $self->{ehr_entity_id});
-    $sth->bind_param(3,  $data->{testName});
-    $sth->bind_param(4,  $data->{dateOrdered});
-    $sth->bind_param(5,  $data->{providerId});
-    $sth->bind_param(6,  $self->{user_id});
-
-    $sth->execute;
-
-    return $sth->{mysql_insertid};
-}
-
 sub add_test_components {
     my ($self, $data) = @_;
 
@@ -794,8 +692,25 @@ sub add_test_components {
     $sth->execute;
 }
 
-sub add_to_user_visits {
+sub get_visit_id {
     my ($self, $data) = @_;
+
+    my $visits;
+    $visits = $self->{dbh}->selectall_hashref("select * from user_visits where userId=? and ehrEntityId=? and visitDateTime=? and departmentOrClinic=?", 
+                                             "id", {}, $self->{user_id}, $self->{ehr_entity_id}, $data->{visitDateTime}, $data->{departmentOrClinic});
+
+    if (defined($visits) && scalar(keys %$visits) == 1) {
+        my @ids = keys %$visits;
+        return $ids[0];
+    }
+    return undef;
+}
+
+sub upsert_user_visit {
+    my ($self, $data) = @_;
+
+    my $visit_id = $self->get_visit_id($data);
+    return $visit_id if (defined($visit_id));
 
     # keep number of attributes in sync with the schema user_medical_history
     die "Invalid user_visits object.  Incorrect number of keys" if (scalar(keys %$data) != 5);
@@ -817,12 +732,31 @@ sub add_to_user_visits {
     $sth->bind_param(8,  $self->{user_id});
 
     $sth->execute;
-
     return $sth->{mysql_insertid};
 }
 
-sub add_to_user_visit_details {
-    my ($self, $data, $visit_detail_id) = @_;
+sub get_visit_detail_id {
+    my ($self, $data) = @_;
+
+    my $visit_details;
+    $visit_details = 
+      $self->{dbh}->selectall_hashref(
+         "select * from user_visit_details where userId=? and ehrEntityId=? and userVisitId=? and visitTimestamp=? and providerId=?",
+                                      "id", {}, $self->{user_id}, $self->{ehr_entity_id}, $data->{userVisitId}, $data->{vistiTimestamp},
+                                      $data->{providerId});
+
+    if (defined($visit_details) && scalar(keys %$visit_details) == 1) {
+        my @ids = keys %$visit_details;
+        return $ids[0];
+    }
+    return undef;
+}
+
+sub upsert_visit_detail {
+    my ($self, $data) = @_;
+
+    my $visit_detail_id = $self->get_visit_detail_id($data);
+    return $visit_detail_id if (defined($visit_detail_id));
 
     # keep number of attributes in sync with the schema user_visit_details
     die "Invalid user_visit_details object.  Incorrect number of keys" if (scalar(keys %$data) != 10);
@@ -849,7 +783,6 @@ sub add_to_user_visit_details {
     $sth->bind_param(13,  $self->{user_id});
 
     $sth->execute;
-
     return $sth->{mysql_insertid};
 }
 

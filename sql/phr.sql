@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS providers (
   timeZone varchar(20) default NULL,
   updated timestamp NOT NULL default CURRENT_TIMESTAMP on update CURRENT_TIMESTAMP,
   created TIMESTAMP NOT NULL,
+  UNIQUE(fullName),
   PRIMARY KEY  (id)
 ) ENGINE=InnoDB;
 
@@ -474,7 +475,7 @@ CREATE TABLE IF NOT EXISTS user_tests (
   foreign key (userId) references users(id),
   foreign key (ehrEntityId) references ehr_entities(id),
   foreign key (providerId) references providers(id),
-  UNIQUE KEY test_UNIQUE (userId, testName, providerId, dateOrdered),
+  UNIQUE KEY test_UNIQUE (userId, ehrEntityId, testName, providerId, dateOrdered),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 

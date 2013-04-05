@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-
 my $month_map = {
                  "January" => "01",
                  "February" => "02",

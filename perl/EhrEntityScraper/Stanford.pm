@@ -742,7 +742,7 @@ sub get_visit_detail_id {
     $visit_details = 
       $self->{dbh}->selectall_hashref(
          "select * from user_visit_details where userId=? and ehrEntityId=? and userVisitId=? and visitTimestamp=? and providerId=?",
-                                      "id", {}, $self->{user_id}, $self->{ehr_entity_id}, $data->{userVisitId}, $data->{vistiTimestamp},
+                                      "id", {}, $self->{user_id}, $self->{ehr_entity_id}, $data->{userVisitId}, $data->{visitTimestamp},
                                       $data->{providerId});
 
     if (defined($visit_details) && scalar(keys %$visit_details) == 1) {

@@ -17,6 +17,7 @@ use JSON -support_by_pp;
 use Data::Dumper;
 
 # Add new instances of scrapers here.
+use EhrEntityScraper::db;
 use EhrEntityScraper::Stanford;
 use EhrEntityScraper::PAMF;
 

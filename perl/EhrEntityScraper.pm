@@ -40,7 +40,7 @@ sub initialize {
     $self->{dbh} = DBI->connect ('dbi:mysql:database=phr', 'root', 'root', {RaiseError => 1, AutoCommit => 1});
 
     $self->set_canned_config({save_to_canned => defined($args_hash->{save_to_canned})? $args_hash->{save_to_canned} : 0,
-                              read_from_canned => defined($args_hash->{read_from_canned})? $args_hash->{read_from_canned} : 1});
+                              read_from_canned => defined($args_hash->{read_from_canned})? $args_hash->{read_from_canned} : 0});
 
     $self->{canned_dir}      = "/var/tmp/canned-ehr-entity-scraper";
     $self->{cookie_dir}      = "/var/tmp/cookies-ehr-entity-scraper";

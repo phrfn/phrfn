@@ -13,7 +13,7 @@ use parent qw(EhrEntityScraper);
 use HTML::TreeBuilder::XPath;
 use URI;
 
-use EhrEntityScraper::Util qw(trim trim_undef parse_visit_type);
+use EhrEntityScraper::Util;
 
 sub do_medications {
     my ($self) = @_;

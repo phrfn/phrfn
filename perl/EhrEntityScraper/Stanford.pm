@@ -18,8 +18,7 @@ use EhrEntityScraper::Util qw(trim trim_undef parse_visit_type);
 sub login {
     my $self = shift;
 
-    $self->{tree} = HTML::TreeBuilder::XPath->new_from_content($self->{login_page}->decoded_content);
-    my $form = $self->{tree}->findnodes('/html/body//div[@id="defaultForm"]/form');
+    my $form = $self->get_login_form();
     my $post_url = $self->{ehr_entity_url} . $form->[0]->attr('action');
     my @inputs = $form->[0]->look_down("_tag", "input");
     my $post_params = $self->make_name_values(\@inputs, {
@@ -33,6 +32,30 @@ sub login {
     $self->set_canned_config({save_to_canned => 0, read_from_canned => 0});
     $self->{resp} = $self->ua_post($post_url, $post_params);
     $self->set_canned_config($saved_canned_config);
+}
+
+#
+# sometimes you need to get the login page twice to get the right form
+# 
+sub get_login_form {
+    my $self = shift;
+    my ($form, $action);
+
+    $self->{login_page} = $self->ua_get($self->{ehr_entity_url});
+    $self->{tree} = HTML::TreeBuilder::XPath->new_from_content($self->{login_page}->decoded_content);
+    $form = $self->{tree}->findnodes('/html/body//div[@id="defaultForm"]/form');
+    $action = (defined($form) && defined($form->[0])) ? $form->[0]->attr('action') : undef;
+    if (!defined($form) || !defined($action)) {
+        $form = $action = undef;
+        $self->{login_page} = $self->ua_get($self->{ehr_entity_url});
+        $self->{tree} = HTML::TreeBuilder::XPath->new_from_content($self->{login_page}->decoded_content);
+        $form = $self->{tree}->findnodes('/html/body//div[@id="defaultForm"]/form');
+        $action = (defined($form) && defined($form->[0])) ? $form->[0]->attr('action') : undef;
+        if (!defined($form) || !defined($action)) {
+            die "could not get login page";
+        }
+    }
+    return $form;
 }
 
 sub health_summary {
@@ -58,6 +81,7 @@ sub medical_history {
 }
 
 sub appointments {
+    # There's currently no apptmts in the Evan's stanford a/c
 }
 
 sub tests {
@@ -104,8 +128,9 @@ sub tests {
 sub visits {
     my $self = shift;
     $self->hospital_visits();                                        # Stanford has separate hospital visits
-    # $self->provider_visits();
+    $self->provider_visits();
 }
+
 sub hospital_visits {
     my $self = shift;
     my $get_url_base = "https://myhealth.stanfordmedicine.org/myhealth/inside.asp?mode=admissions";
@@ -622,7 +647,7 @@ sub add_medication {
                                     ") " .
                                     "values(" .
                                     "?, ?, ?, ?, ?, ?, ?, ?, ?, ?" .
-                                    ")");
+                                    ") on duplicate key update userId=?");
     $sth->bind_param(1,  $self->{user_id});
     $sth->bind_param(2,  $self->{ehr_entity_id});
     $sth->bind_param(3,  $data->{medication});
@@ -633,6 +658,7 @@ sub add_medication {
     $sth->bind_param(8,  $data->{startDate});
     $sth->bind_param(9,  $data->{endDate});
     $sth->bind_param(10,  $data->{status});
+    $sth->bind_param(11,  $self->{user_id});
 
     $sth->execute;
 }
@@ -649,13 +675,14 @@ sub add_allergy {
                                     ") " .
                                     "values(" .
                                     "?, ?, ?, ?, ?, ?" .
-                                    ")");
+                                    ") on duplicate key update userId=?");
     $sth->bind_param(1,  $self->{user_id});
     $sth->bind_param(2,  $self->{ehr_entity_id});
     $sth->bind_param(3,  $data->{allergen});
     $sth->bind_param(4,  $data->{reaction});
     $sth->bind_param(5,  $data->{severity});
     $sth->bind_param(6,  $data->{reportedDate});
+    $sth->bind_param(7,  $self->{user_id});
 
     $sth->execute;
 }
@@ -672,12 +699,13 @@ sub add_immunization {
                                     ") " .
                                     "values(" .
                                     "?, ?, ?, ?, ?" .
-                                    ")");
+                                    ") on duplicate key update userId=?");
     $sth->bind_param(1,  $self->{user_id});
     $sth->bind_param(2,  $self->{ehr_entity_id});
     $sth->bind_param(3,  $data->{immunizationName});
     $sth->bind_param(4,  $data->{dueDateOrTimeFrame});
     $sth->bind_param(5,  $data->{doneDate});
+    $sth->bind_param(6,  $self->{user_id});
 
     $sth->execute;
 }
@@ -694,7 +722,7 @@ sub add_medical_history {
                                     ") " .
                                     "values(" .
                                     "?, ?, ?, ?, ?, ?, ?" .
-                                    ")");
+                                    ") on duplicate key update userId=?");
     $sth->bind_param(1,  $self->{user_id});
     $sth->bind_param(2,  $self->{ehr_entity_id});
     $sth->bind_param(3,  $data->{historyType});
@@ -702,6 +730,7 @@ sub add_medical_history {
     $sth->bind_param(5,  $data->{diagnosis});
     $sth->bind_param(6,  $data->{diagnosisDateOrTimeFrame});
     $sth->bind_param(7,  $data->{comments});
+    $sth->bind_param(8,  $self->{user_id});
 
     $sth->execute;
 }
@@ -718,12 +747,13 @@ sub add_tests {
                                     ") " .
                                     "values(" .
                                     "?, ?, ?, ?, ?" .
-                                    ")");
+                                    ") on duplicate key update userId=?");
     $sth->bind_param(1,  $self->{user_id});
     $sth->bind_param(2,  $self->{ehr_entity_id});
     $sth->bind_param(3,  $data->{testName});
     $sth->bind_param(4,  $data->{dateOrdered});
     $sth->bind_param(5,  $data->{providerId});
+    $sth->bind_param(6,  $self->{user_id});
 
     $sth->execute;
 
@@ -743,7 +773,7 @@ sub add_test_components {
                                     ") " .
                                     "values(" .
                                     "?, ?, ?, ?, ?,?, ?, ?, ?, ?,?, ?, ?, ?, ?" .
-                                    ")");
+                                    ") on duplicate key update userId=?");
     $sth->bind_param(1,  $self->{user_id});
     $sth->bind_param(2,  $self->{ehr_entity_id});
     $sth->bind_param(3,  $data->{userTestId});
@@ -759,6 +789,7 @@ sub add_test_components {
     $sth->bind_param(13,  $data->{imagingNarrative});
     $sth->bind_param(14,  $data->{imagingImpression});
     $sth->bind_param(15,  $data->{providerId});
+    $sth->bind_param(16,  $self->{user_id});
 
     $sth->execute;
 }
@@ -775,7 +806,7 @@ sub add_to_user_visits {
                                     ") " .
                                     "values(" .
                                     "?, ?, ?, ?, ?,?, ?" .
-                                    ")");
+                                    ") on duplicate key update userId=?");
     $sth->bind_param(1,  $self->{user_id});
     $sth->bind_param(2,  $self->{ehr_entity_id});
     $sth->bind_param(3,  $data->{description});
@@ -783,6 +814,7 @@ sub add_to_user_visits {
     $sth->bind_param(5,  $data->{departmentOrClinic});
     $sth->bind_param(6,  $data->{providerType});
     $sth->bind_param(7,  $data->{dischargeDateTime});
+    $sth->bind_param(8,  $self->{user_id});
 
     $sth->execute;
 
@@ -801,7 +833,7 @@ sub add_to_user_visit_details {
                                     ") " .
                                     "values(" .
                                     "?, ?, ?,?, ?, ?,?, ?, ?,?, ?, ?" .
-                                    ")");
+                                    ") on duplicate key update userId=?");
     $sth->bind_param(1,  $self->{user_id});
     $sth->bind_param(2,  $self->{ehr_entity_id});
     $sth->bind_param(3,  $data->{userVisitId});
@@ -814,6 +846,7 @@ sub add_to_user_visit_details {
     $sth->bind_param(10,  $data->{referrals});
     $sth->bind_param(11,  $data->{testsOrdered});
     $sth->bind_param(12,  $data->{surgery});
+    $sth->bind_param(13,  $self->{user_id});
 
     $sth->execute;
 
@@ -829,7 +862,7 @@ sub add_to_user_visit_diagnosis {
                                     ") " .
                                     "values(" .
                                     "?, ?, ?, ?" .
-                                    ")");
+                                    ") on duplicate key update userId=?");
 
     foreach my $record (@$records) {
         # keep number of attributes in sync with the schema user_visit_diagnosis
@@ -839,6 +872,7 @@ sub add_to_user_visit_diagnosis {
         $sth->bind_param(2,  $self->{ehr_entity_id});
         $sth->bind_param(3,  $visit_detail_id);
         $sth->bind_param(4,  $record->{description});
+        $sth->bind_param(5,  $self->{user_id});
 
         $sth->execute;
     }
@@ -853,7 +887,7 @@ sub add_to_user_visit_tests {
                                     ") " .
                                     "values(" .
                                     "?, ?, ?, ?" .
-                                    ")");
+                                    ") on duplicate key update userId=?");
 
     foreach my $record (@$records) {
         # keep number of attributes in sync with the schema user_visit_tests
@@ -863,6 +897,7 @@ sub add_to_user_visit_tests {
         $sth->bind_param(2,  $self->{ehr_entity_id});
         $sth->bind_param(3,  $visit_detail_id);
         $sth->bind_param(4,  $record->{userTestId});
+        $sth->bind_param(5,  $self->{user_id});
 
         $sth->execute;
     }
@@ -878,7 +913,7 @@ sub add_to_user_visit_surgeries {
                                     ") " .
                                     "values(" .
                                     "?, ?, ?, ?, ?,?, ?,?" .
-                                    ")");
+                                    ") on duplicate key update userId=?");
 
     foreach my $record (@$records) {
         # keep number of attributes in sync with the schema user_visit_surgeries
@@ -892,6 +927,7 @@ sub add_to_user_visit_surgeries {
         $sth->bind_param(6,  $record->{providerId});
         $sth->bind_param(7,  $record->{location});
         $sth->bind_param(8,  $record->{status});
+        $sth->bind_param(9,  $self->{user_id});
 
         $sth->execute;
     }

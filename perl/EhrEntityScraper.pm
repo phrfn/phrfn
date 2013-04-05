@@ -51,7 +51,6 @@ sub initialize {
                                                autosave => 1,
                                                ignore_discard => 1,));
 
-    $self->{login_page} = $self->ua_get($self->{ehr_entity_url});
 }
 
 sub initialize_canned_dir {
@@ -183,10 +182,10 @@ sub scrape {
     my ($self) = @_;
 
     $self->login();
-    # $self->health_summary();
-    # $self->medical_history();
-    # $self->appointments();
-    # $self->tests();
+    $self->health_summary();
+    $self->medical_history();
+    $self->appointments();
+    $self->tests();
     $self->visits();
     $self->postprocess();
 }

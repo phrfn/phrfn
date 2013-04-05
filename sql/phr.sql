@@ -332,6 +332,7 @@ CREATE TABLE IF NOT EXISTS user_health_reminders (
   status varchar(20) DEFAULT NULL,
   foreign key (userId) references users(id),
   foreign key (ehrEntityId) references ehr_entities(id),
+  UNIQUE(userId, ehrEntityId, reminderName,dueDateOrTimeFrame),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
@@ -396,6 +397,7 @@ CREATE TABLE IF NOT EXISTS user_immunizations (
   doneDate date DEFAULT NULL,
   foreign key (userId) references users(id),
   foreign key (ehrEntityId) references ehr_entities(id),
+  UNIQUE(userId, ehrEntityId, immunizationName),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
@@ -431,6 +433,7 @@ CREATE TABLE IF NOT EXISTS user_medical_history (
   comments varchar(256) DEFAULT NULL,
   foreign key (userId) references users(id),
   foreign key (ehrEntityId) references ehr_entities(id),
+  UNIQUE(userId, ehrEntityId, historyType, diagnosis),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
@@ -448,6 +451,7 @@ CREATE TABLE IF NOT EXISTS user_appointments (
   location varchar(100) NOT NULL,
   foreign key (userId) references users(id),
   foreign key (ehrEntityId) references ehr_entities(id),
+  UNIQUE(userId, ehrEntityId, dueDate, location),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
@@ -535,6 +539,7 @@ CREATE TABLE IF NOT EXISTS user_test_components (
   foreign key (ehrEntityId) references ehr_entities(id),
   foreign key (userTestId) references user_tests(id),
   foreign key (providerId) references providers(id),
+  UNIQUE(userId, ehrEntityId, userTestId, testType, testComponentName),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
@@ -640,6 +645,7 @@ CREATE TABLE IF NOT EXISTS user_visit_details (
   foreign key (ehrEntityId) references ehr_entities(id),
   foreign key (userVisitId) references user_visits(id),
   foreign key (providerId) references providers(id),
+  UNIQUE(userId, ehrEntityId, userVisitId, visitTimestamp,providerId),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
@@ -654,6 +660,7 @@ CREATE TABLE IF NOT EXISTS user_visit_diagnosis (
   foreign key (userId) references users(id),
   foreign key (ehrEntityId) references ehr_entities(id),
   foreign key (visitDetailId) references user_visit_details(id),
+  UNIQUE(userId, ehrEntityId, visitDetailId, description),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
@@ -700,6 +707,7 @@ CREATE TABLE IF NOT EXISTS user_visit_tests (
   foreign key (ehrEntityId) references ehr_entities(id),
   foreign key (visitDetailId) references user_visit_details(id),
   foreign key (userTestId) references user_tests(id),
+  UNIQUE(userId, ehrEntityId, visitDetailId, userTestId),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
@@ -719,6 +727,7 @@ CREATE TABLE IF NOT EXISTS user_visit_surgeries (
   foreign key (ehrEntityId) references ehr_entities(id),
   foreign key (visitDetailId) references user_visit_details(id),
   foreign key (providerId) references providers(id),
+  UNIQUE(userId, ehrEntityId, visitDetailId, primaryProcedure),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 

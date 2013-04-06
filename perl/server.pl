@@ -43,7 +43,7 @@ sub process_client_requests {
                     $c->send_response($resp);
                 };
                 if ($@) {
-                    my $resp = HTTP::Response->new(200, "ok");
+                    my $resp = HTTP::Response->new(500, "ok");
                     $resp->content("<h3>$@</h3>");
                     $c->send_response($resp);
                 }

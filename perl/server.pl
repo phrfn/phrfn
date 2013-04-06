@@ -7,13 +7,11 @@ use URI;
 
 my $background_tasks = {};
 my $host = 'localhost';
-my $port = 9080;
+my $port = 80;
 
-$host = $ARGV[0] if (defined($ARGV[0]));
-$port = $ARGV[1] if (defined($ARGV[1]));
+$port = $ARGV[0] if (defined($ARGV[0]));
 
-my $d = HTTP::Daemon->new(LocalAddr => $host,
-                          LocalPort => $port,
+my $d = HTTP::Daemon->new(LocalPort => $port,
                           Reuse => 1,
                           Listen => 20) || die $!;
 print "Web Server started, server address: ", $d->sockhost(), ", server port: ", $d->sockport(), "\n";
@@ -40,10 +38,10 @@ sub process_client_requests {
                     } else {
                         system("./PHR.pm $email $ehre > /var/tmp/PHR_${email}_${ehre}.log 2>&1 &");
                     }
-                    $c->send_status_line(200);
+                    $c->send_status_line(200, "ok");
                 };
                 if ($@) {
-                    $c->send_status_line(500);
+                    $c->send_status_line(500, $@);
                 }
                 ;
             }

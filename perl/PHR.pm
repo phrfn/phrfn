@@ -31,10 +31,12 @@ sub scrape_for_user_ehr_entity {
     my $user_id = $user->{$user_email}{id};
 
     die "no ehr_entities specified" if (!scalar(@ehr_entities));
+    die "user not known" if (!defined($user_id));
     print "user: $user_email [";
     for my $entity_name (@ehr_entities) {
         my $ehr_entity = $dbh->selectall_hashref("select * from ehr_entities where name=?", "name", {}, $entity_name);
         my $ehr_entity_id = $ehr_entity->{$entity_name}{id};
+        die "ehr not known" if (!defined($ehr_entity_id));
         my $user_ehr   = $dbh->selectall_hashref("select * from user_has_these_ehrs where userId=? and ehrEntityId=?", 
                                                "userId", {}, $user_id, $ehr_entity_id);
         my $user_ehr_entity_scraper = "EhrEntityScraper::$entity_name"->new({

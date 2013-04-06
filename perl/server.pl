@@ -3,7 +3,6 @@ use HTTP::Daemon;
 use threads;
 use URI;
 
-my $PORT = 9080;
 my $background_tasks = {};
 my $host = 'localhost';
 my $port = 9080;

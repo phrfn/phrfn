@@ -8,4 +8,6 @@
    sudo apt-get install libhtml-treebuilder-xpath-perl
    sudo apt-get install libjson-perl
 
+   3) (for aws) open the incoming port on which you decide to run the server.
+
    That's it.

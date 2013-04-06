@@ -26,7 +26,7 @@
    This a) drops existing schema (phr) b) creates schema + empty tables c) populates a single user evanwrichardson@gmail.com and
    two EHR entities (Stanford and PAMF).
 
-7. One can re-import over existing data (don't have delete it first).
+7. One can re-import over existing data (don't have delete it first).  Time of the latest run is in the updated column of user_has_these_ehrs.
 
 8. Add any new users and EHR entities by hand and invoke the scrape per above.
 

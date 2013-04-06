@@ -38,10 +38,14 @@ sub process_client_requests {
                     } else {
                         system("./PHR.pm $email $ehre > /var/tmp/PHR_${email}_${ehre}.log 2>&1 &");
                     }
-                    $c->send_status_line(200, "ok");
+                    my $resp = HTTP::Response->new(200, "ok");
+                    $resp->content("<h3>ok</h3>");
+                    $c->send_response($resp);
                 };
                 if ($@) {
-                    $c->send_status_line(500, $@);
+                    my $resp = HTTP::Response->new(200, "ok");
+                    $resp->content("<h3>$@</h3>");
+                    $c->send_response($resp);
                 }
                 ;
             }

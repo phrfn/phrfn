@@ -39,12 +39,12 @@ sub process_client_requests {
                         system("./PHR.pm $email $ehre > /var/tmp/PHR_${email}_${ehre}.log 2>&1 &");
                     }
                     my $resp = HTTP::Response->new(200, "ok");
-                    $resp->content("<h3>ok</h3>");
+                    $resp->content("ok");
                     $c->send_response($resp);
                 };
                 if ($@) {
-                    my $resp = HTTP::Response->new(500, "ok");
-                    $resp->content("<h3>$@</h3>");
+                    my $resp = HTTP::Response->new(500, "error");
+                    $resp->content("$@");
                     $c->send_response($resp);
                 }
                 ;

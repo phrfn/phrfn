@@ -5,9 +5,14 @@ use URI;
 
 my $PORT = 9080;
 my $background_tasks = {};
+my $host = 'localhost';
+my $port = 9080;
 
-my $d = HTTP::Daemon->new(LocalAddr => 'localhost', #$ARGV[0],
-                          LocalPort => 9080, # 80,
+$host = $ARGV[0] if (defined($ARGV[0]));
+$port = $ARGV[1] if (defined($ARGV[1]));
+
+my $d = HTTP::Daemon->new(LocalAddr => $host,
+                          LocalPort => $port,
                           Reuse => 1,
                           Listen => 20) || die $!;
 print "Web Server started, server address: ", $d->sockhost(), ", server port: ", $d->sockport(), "\n";

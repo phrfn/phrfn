@@ -1,3 +1,5 @@
+#!/usr/bin/perl
+
 use PHR;
 use HTTP::Daemon;
 use threads;

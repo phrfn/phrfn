@@ -1,0 +1,11 @@
+   You need to install the following on the ec2 ubuntu 12.04 stock image:
+   1) mysql
+   sudo apt-get install mysql-server
+
+   2) some perl packages
+   sudo apt-get install libdbi-perl
+   sudo apt-get install libwww-perl
+   sudo apt-get install libhtml-treebuilder-xpath-perl
+   sudo apt-get install libjson-perl
+
+   That's it.

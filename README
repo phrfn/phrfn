@@ -1,0 +1,26 @@
+1. Copy to a directory <dir> on an ec2 (or similar linux backed) cloud box.
+2. Ubuntu 12.04 LTS does not need anything other than stock install (but with mysqld).
+3. cd <dir>perl
+4. ./server.pl <host> <port>
+   Default is host=localhost port=9080
+5. Using a browser go to:
+   http://<host>:<port>/scrape/<user_email>/<ehr_entity>
+
+   e.g.
+
+   http://localhost:9080/scrape/evanwrichardson@gmail.com/Stanford OR
+   http://localhost:9080/scrape/evanwrichardson@gmail.com/PAMF
+
+   This blocks till the fetch is complete.  To do it in the background, do:
+
+   http://localhost:9080/scrape/evanwrichardson@gmail.com/Stanford/?bg=1 OR
+   http://localhost:9080/scrape/evanwrichardson@gmail.com/PAMF/?bg=1
+
+6. To reset database state run at mysql client prompt:
+   mysql> source <dir>/sql/reset.sql
+
+   This 1) drops existing schema (phr) 2) creates schema + empty tables 3) populates a single user evanwrichardson@gmail.com and
+   two EHR entities Stanford and PAMF.
+
+7. Add any new users and EHR entities by hand and invoke the scrape per above.
+

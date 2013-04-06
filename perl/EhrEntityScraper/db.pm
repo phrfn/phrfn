@@ -1,15 +1,9 @@
 #!/usr/bin/perl
-
-package EhrEntityScraper::Stanford;
-
 use strict;
 use warnings;
-use vars qw($VERSION @EXPORT @EXPORT_OK %EXPORT_TAGS @ISA);
-use Exporter;
 use LWP::UserAgent;
 use HTML::TreeBuilder;
 use HTTP::Response;
-use parent qw(EhrEntityScraper);
 use HTML::TreeBuilder::XPath;
 use URI;
 
@@ -153,6 +147,30 @@ sub add_allergy {
     $sth->execute;
 }
 
+sub add_health_reminder {
+    my ($self, $data) = @_;
+
+    # keep number of attributes in sync with the schema user_health_reminders
+    die "Invalid user_reminders object.  Incorrect number of keys" if (scalar(keys %$data) != 4);
+
+    my $sth = $self->{dbh}->prepare("insert into user_health_reminders(" .
+                                    "userId, ehrEntityId," .
+                                    "reminderName, dueDateOrTimeFrame, doneDate, status" .
+                                    ") " .
+                                    "values(" .
+                                    "?, ?, ?, ?, ?, ?" .
+                                    ") on duplicate key update userId=?");
+    $sth->bind_param(1,  $self->{user_id});
+    $sth->bind_param(2,  $self->{ehr_entity_id});
+    $sth->bind_param(3,  $data->{reminderName});
+    $sth->bind_param(4,  $data->{dueDateOrTimeFrame});
+    $sth->bind_param(5,  $data->{doneDate});
+    $sth->bind_param(6,  $data->{status});
+    $sth->bind_param(7,  $self->{user_id});
+
+    $sth->execute;
+}
+
 sub add_immunization {
     my ($self, $data) = @_;
 
@@ -205,34 +223,39 @@ sub add_test_components {
     my ($self, $data) = @_;
 
     # keep number of attributes in sync with the schema user_medical_history
-    die "Invalid user_test_components object.  Incorrect number of keys" if (scalar(keys %$data) != 13);
+    die "Invalid user_test_components object.  Incorrect number of keys" if (scalar(keys %$data) != 8);
 
-    my $sth = $self->{dbh}->prepare("insert into user_test_components(" .
-                                    "userId, ehrEntityId," .
-                                    "userTestId, testType, testComponentName, userValue, standardRange, units, flag, testComponentResult," .
-                                    "dateSpecimenCollected, dateResultProvided, imagingNarrative, imagingImpression, providerId" .
-                                    ") " .
-                                    "values(" .
-                                    "?, ?, ?, ?, ?,?, ?, ?, ?, ?,?, ?, ?, ?, ?" .
-                                    ") on duplicate key update userId=?");
-    $sth->bind_param(1,  $self->{user_id});
-    $sth->bind_param(2,  $self->{ehr_entity_id});
-    $sth->bind_param(3,  $data->{userTestId});
-    $sth->bind_param(4,  $data->{testType});
-    $sth->bind_param(5,  $data->{testComponentName});
-    $sth->bind_param(6,  $data->{userValue});
-    $sth->bind_param(7,  $data->{standardRange});
-    $sth->bind_param(8,  $data->{units});
-    $sth->bind_param(9,  $data->{flag});
-    $sth->bind_param(10,  $data->{testComponentResult});
-    $sth->bind_param(11,  $data->{dateSpecimenCollected});
-    $sth->bind_param(12,  $data->{dateResultProvided});
-    $sth->bind_param(13,  $data->{imagingNarrative});
-    $sth->bind_param(14,  $data->{imagingImpression});
-    $sth->bind_param(15,  $data->{providerId});
-    $sth->bind_param(16,  $self->{user_id});
+    foreach my $component (@{$data->{components}}) {
+        my $sth = $self->{dbh}->prepare("insert into user_test_components(" .
+                                        "userId, ehrEntityId," .
+                                        "userTestId, testType, testComponentName, userValue, standardRange, units, flag, testComponentResult," .
+                                        "dateSpecimenCollected, dateResultProvided, imagingNarrative, imagingImpression, providerId" .
+                                        ") " .
+                                        "values(" .
+                                        "?, ?, ?, ?, ?,?, ?, ?, ?, ?,?, ?, ?, ?, ?" .
+                                        ") on duplicate key update userId=?");
+        $sth->bind_param(1,  $self->{user_id});
+        $sth->bind_param(2,  $self->{ehr_entity_id});
+        $sth->bind_param(3,  $data->{userTestId});
 
-    $sth->execute;
+        $sth->bind_param(4,  $data->{testType});
+
+        $sth->bind_param(5,  $component->{testComponentName});
+        $sth->bind_param(6,  $component->{userValue});
+        $sth->bind_param(7,  $component->{standardRange});
+        $sth->bind_param(8,  $component->{units});
+        $sth->bind_param(9,  $component->{flag});
+        $sth->bind_param(10, $component->{testComponentResult});
+
+        $sth->bind_param(11,  $data->{dateSpecimenCollected});
+        $sth->bind_param(12,  $data->{dateResultProvided});
+        $sth->bind_param(13,  $data->{imagingNarrative});
+        $sth->bind_param(14,  $data->{imagingImpression});
+        $sth->bind_param(15,  $data->{providerId});
+        $sth->bind_param(16,  $self->{user_id});
+
+        $sth->execute;
+    }
 }
 
 sub get_visit_id {
@@ -404,6 +427,59 @@ sub add_to_user_visit_surgeries {
         $sth->bind_param(7,  $record->{location});
         $sth->bind_param(8,  $record->{status});
         $sth->bind_param(9,  $self->{user_id});
+
+        $sth->execute;
+    }
+}
+
+sub add_to_user_visit_vitals {
+    my ($self, $records, $visit_detail_id) = @_;
+
+
+    my $sth = $self->{dbh}->prepare("insert into user_visit_vitals(" .
+                                    "userId, ehrEntityId,visitDetailId," .
+                                    "vitalName, vitalValue" .
+                                    ") " .
+                                    "values(" .
+                                    "?, ?, ?, ?, ?" .
+                                    ") on duplicate key update userId=?");
+
+    foreach my $record (@$records) {
+        # keep number of attributes in sync with the schema user_visit_vitals
+        die "Invalid user_visit_surgeries object.  Incorrect number of keys" if (scalar(keys %$record) != 2);
+
+        $sth->bind_param(1,  $self->{user_id});
+        $sth->bind_param(2,  $self->{ehr_entity_id});
+        $sth->bind_param(3,  $visit_detail_id);
+        $sth->bind_param(4,  $record->{vitalName});
+        $sth->bind_param(5,  $record->{vitalValue});
+        $sth->bind_param(6,  $self->{user_id});
+
+        $sth->execute;
+    }
+}
+
+sub add_to_user_visit_referrals {
+    my ($self, $records, $visit_detail_id) = @_;
+
+
+    my $sth = $self->{dbh}->prepare("insert into user_visit_referrals(" .
+                                    "userId, ehrEntityId,visitDetailId," .
+                                    "referralInstructions" .
+                                    ") " .
+                                    "values(" .
+                                    "?, ?, ?, ?" .
+                                    ") on duplicate key update userId=?");
+
+    foreach my $record (@$records) {
+        # keep number of attributes in sync with the schema user_visit_referrals
+        die "Invalid user_visit_referrals object.  Incorrect number of keys" if (scalar(keys %$record) != 2);
+
+        $sth->bind_param(1,  $self->{user_id});
+        $sth->bind_param(2,  $self->{ehr_entity_id});
+        $sth->bind_param(3,  $visit_detail_id);
+        $sth->bind_param(4,  $record->{referralInstructions});
+        $sth->bind_param(5,  $self->{user_id});
 
         $sth->execute;
     }

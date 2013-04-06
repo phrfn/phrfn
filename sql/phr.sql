@@ -673,7 +673,6 @@ CREATE TABLE IF NOT EXISTS user_visit_vitals (
   visitDetailId bigint unsigned NOT NULL,
   vitalName varchar(50) DEFAULT NULL,
   vitalValue varchar(50) DEFAULT NULL,
-  dateOrdered varchar(50) DEFAULT NULL,
   foreign key (userId) references users(id),
   foreign key (ehrEntityId) references ehr_entities(id),
   foreign key (visitDetailId) references user_visit_details(id),
@@ -686,13 +685,13 @@ CREATE TABLE IF NOT EXISTS user_visit_referrals (
   userId bigint unsigned NOT NULL,
   ehrEntityId int unsigned NOT NULL,
   visitDetailId bigint unsigned NOT NULL,
-  referreredProviderName varchar(50) DEFAULT NULL,
-  providerId bigint unsigned DEFAULT NULL,
+  referredProviderId bigint unsigned DEFAULT NULL,
   referralInstructions varchar(512) DEFAULT NULL,
   foreign key (userId) references users(id),
   foreign key (ehrEntityId) references ehr_entities(id),
   foreign key (visitDetailId) references user_visit_details(id),
-  foreign key (providerId) references providers(id),
+  foreign key (referredProviderId) references providers(id),
+  UNIQUE(userId,ehrEntityId,visitDetailId,referredProviderId),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 

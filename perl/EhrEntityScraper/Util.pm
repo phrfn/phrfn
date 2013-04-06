@@ -1,4 +1,12 @@
 #!/usr/bin/perl
+
+package EhrEntityScraper::Util;
+use vars qw($VERSION @EXPORT @EXPORT_OK %EXPORT_TAGS @ISA);
+use Exporter;
+
+@ISA = qw(Exporter);
+@EXPORT = qw(trim trim_undef parse_visit_type forward_slash_datetime space_datetime);
+
 my $month_map = {
                  "January" => "01",
                  "February" => "02",
@@ -46,6 +54,8 @@ sub forward_slash_datetime {
 
     my ($hour, $minutes, $ampm) = (0, 0, "AM");
     my ($month, $day, $year);
+
+    return undef if(!defined($str));
 
     if ($str =~ m/(\d+)\/(\d+)\/(\d+)\s*(\d+)?:?(\d+)?\s*(AM|PM)?/) {
         ($month, $day, $year) = ($1, $2, $3);

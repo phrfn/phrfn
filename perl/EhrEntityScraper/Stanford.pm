@@ -13,61 +13,10 @@ use parent qw(EhrEntityScraper);
 use HTML::TreeBuilder::XPath;
 use URI;
 
-use EhrEntityScraper::Util qw(trim trim_undef parse_visit_type);
-
-sub medical_history {
-    my $self = shift;
-    my $get_url = URI->new_abs("./inside.asp?mode=histories", $self->{resp}->base());
-
-    $self->{resp} = $self->ua_get($get_url);
-    $self->{tree} = HTML::TreeBuilder::XPath->new_from_content($self->{resp}->decoded_content);
-
-    $self->do_medical_history();
-}
+use EhrEntityScraper::Util;
 
 sub appointments {
     # There's currently no apptmts in the Evan's stanford a/c
-}
-
-sub tests {
-    my $self = shift;
-    my $get_url = URI->new_abs("./inside.asp?mode=labs", $self->{resp}->base());
-    my $pg=1;
-
-    while (1) {
-        $get_url = $get_url . "&pg=$pg" if ($pg ne "1");
-
-        $self->{resp} = $self->ua_get($get_url);
-        $self->{tree} = HTML::TreeBuilder::XPath->new_from_content($self->{resp}->decoded_content);
-
-        my $tests = $self->{tree}->findnodes('/html/body//div[@id="labs"]//table//tbody/tr');
-        foreach my $test (@$tests) {
-            my @tds = $test->look_down('_tag', 'td');
-            next if (scalar(@tds) != 3);
-            my $date  = trim_undef($tds[0]->as_trimmed_text);
-            my @date = split("/", $date);
-            my $test_name  = trim_undef($tds[1]->as_trimmed_text);
-            my $test_href = $tds[1]->look_down('_tag', 'a')->attr('href');
-            my $provider  = trim_undef($tds[2]->as_trimmed_text);
-            my $provider_id = $self->upsert_provider({fullName => $provider});
-            my $test_obj = {
-                            testName                 => $test_name,
-                            dateOrdered              => sprintf("%d-%0d-%0d", $date[2], $date[0], $date[1]),
-                            providerId               => $provider_id,
-                           };
-
-            my $test_id = $self->upsert_test($test_obj);
-            $self->test_components($test_id, $test_obj, $test_href);
-        }
-        my $tfoot_divs = $self->{tree}->findnodes('/html/body//tfoot/div');
-        last if (!defined($tfoot_divs) || !scalar(@$tfoot_divs));
-        if ($tfoot_divs->[1]->as_trimmed_text ne "Next") {
-            print "unexpected tfoot navigation. No active or inactive Next";
-            last;
-        }
-        last if (!defined($tfoot_divs->[1]->look_down('_tag', 'a')));
-        $pg++;
-    }
 }
 
 sub visits {
@@ -249,9 +198,19 @@ sub provider_visits {
 sub do_components {
     my ($self, $record) = @_;
 
-    $record->{testComponentName} = $record->{userValue} = $record->{standardRange} = $record->{units} = 
-      $record->{flag} = $record->{testComponentResult} = undef;
+    $record->{components} = [];
+    my $one = {};
 
+    $one->{testComponentName}   = undef;
+    $one->{userValue}           = undef;
+    $one->{standardRange}       = undef;
+    $one->{units}               = undef;
+    $one->{flag}                = undef;
+    $one->{testComponentResult} = undef;
+
+    push @{$record->{components}}, $one;
+
+    # Stanford has no components, log a message if we see something here in the future..
     my $div = $self->{tree}->findnodes('/html/body//div[@id="results"]');
     if (defined($div) && scalar(@$div)) {
         if ($div->[0]->as_trimmed_text !~ m/There is no component information for this result/) {
@@ -307,7 +266,7 @@ sub do_general {
             if ($general_spans->[$i]->as_trimmed_text =~ m/Resulted:/) {
                 if ($general_ps->[$i]->as_trimmed_text =~ m/^(\d+\/\d+\/\d+)\s+/) {
                     my @date_comps = split ("/", $1);
-                    $record->{dateSpecimenCollected} = sprintf("%d-%0d-%0d", $date_comps[2], $date_comps[0], $date_comps[1]);
+                    $record->{dateResultProvided} = sprintf("%d-%0d-%0d", $date_comps[2], $date_comps[0], $date_comps[1]);
                 }
             }
             if ($general_spans->[$i]->as_trimmed_text =~ m/Ordered By:/) {
@@ -320,28 +279,6 @@ sub do_general {
             }
         }
     }
-}
-
-sub test_components {
-    my ($self, $test_id, $test, $href) = @_;
-
-    my $get_url = URI->new_abs($href, $self->{resp}->base());
-    $self->{resp} = $self->ua_get($get_url);
-    $self->{tree} = HTML::TreeBuilder::XPath->new_from_content($self->{resp}->decoded_content);
-
-    my $test_components_record = {userTestId => $test_id};
-    if ($test->{testName} =~ m/^XR/ || $test->{testName} =~ m/^CT/) {
-        $test_components_record->{testType} = 'imaging';
-    } else {
-        $test_components_record->{testType} = 'lab';
-    }
-
-    $self->do_components($test_components_record);
-    $self->do_narrative($test_components_record);
-    $self->do_impression($test_components_record);
-    $self->do_general($test_components_record);
-
-    $self->add_test_components($test_components_record);
 }
 
 sub do_medications {
@@ -425,7 +362,7 @@ sub do_medical_history {
                                     historyType              => 'Medical',
                                     relationship             => undef,
                                     diagnosis                => $diag,
-                                    diagnosisDateOrTimeFrame => $date, # XXX why varchar ??? (age 16)
+                                    diagnosisDateOrTimeFrame => $date,
                                     comments                 => undef,
                                    });
     }
@@ -442,7 +379,7 @@ sub do_medical_history {
                                     historyType              => 'Surgical',
                                     relationship             => undef,
                                     diagnosis                => $proc,
-                                    diagnosisDateOrTimeFrame => $date, # XXX why varchar ??? (age 16)
+                                    diagnosisDateOrTimeFrame => $date,
                                     comments                 => undef,
                                    });
     }

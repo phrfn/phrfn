@@ -10,6 +10,9 @@ use HTML::TreeBuilder;
 use HTTP::Response;
 use HTML::TreeBuilder::XPath;
 
+use EhrEntityScraper::db;
+use EhrEntityScraper::Util;
+
 sub new {
     my ($class, $args_hash) = @_;
     my $self = bless {}, $class;
@@ -39,7 +42,7 @@ sub initialize {
     @$self{keys %$args_hash} = values %$args_hash;
     $self->{dbh} = DBI->connect ('dbi:mysql:database=phr', 'root', 'root', {RaiseError => 1, AutoCommit => 1});
 
-    $self->set_canned_config({save_to_canned => defined($args_hash->{save_to_canned})? $args_hash->{save_to_canned} : 0,
+    $self->set_canned_config({save_to_canned => defined($args_hash->{save_to_canned})? $args_hash->{save_to_canned} : 1,
                               read_from_canned => defined($args_hash->{read_from_canned})? $args_hash->{read_from_canned} : 0});
 
     $self->{canned_dir}      = "/var/tmp/canned-ehr-entity-scraper";
@@ -246,6 +249,7 @@ sub health_summary {
     $self->do_medications();
     $self->do_allergies();
     $self->do_immunizations();
+    $self->do_reminders();
 }
 
 sub do_immunizations {
@@ -265,6 +269,83 @@ sub do_immunizations {
                                  doneDate      => sprintf("%d-%02d-%02d", $done_date[2], $done_date[0], $done_date[1]),
                                 });
     }
+}
+
+sub do_reminders {
+    # no-op for non PAMF
+}
+
+sub medical_history {
+    my $self = shift;
+    my $get_url = URI->new_abs("./inside.asp?mode=histories", $self->{ehr_entity_url});
+
+    $self->{resp} = $self->ua_get($get_url);
+    $self->{tree} = HTML::TreeBuilder::XPath->new_from_content($self->{resp}->decoded_content);
+
+    $self->do_medical_history();
+}
+
+sub tests {
+    my $self = shift;
+    my $get_url = URI->new_abs("./inside.asp?mode=labs", $self->{resp}->base());
+    my $pg=1;
+
+    while (1) {
+        $get_url = $get_url . "&pg=$pg" if ($pg ne "1");
+
+        $self->{resp} = $self->ua_get($get_url);
+        $self->{tree} = HTML::TreeBuilder::XPath->new_from_content($self->{resp}->decoded_content);
+
+        my $tests = $self->{tree}->findnodes('/html/body//div[@id="labs"]//table//tbody/tr');
+        foreach my $test (@$tests) {
+            my @tds = $test->look_down('_tag', 'td');
+            next if (scalar(@tds) < 3);
+            my $date  = trim_undef($tds[0]->as_trimmed_text);
+            my @date = split("/", $date);
+            my $test_name  = trim_undef($tds[1]->as_trimmed_text);
+            my $test_href = $tds[1]->look_down('_tag', 'a')->attr('href');
+            my $provider  = trim_undef($tds[2]->as_trimmed_text);
+            my $provider_id = $self->upsert_provider({fullName => $provider});
+            my $test_obj = {
+                            testName                 => $test_name,
+                            dateOrdered              => sprintf("%d-%0d-%0d", $date[2], $date[0], $date[1]),
+                            providerId               => $provider_id,
+                           };
+
+            my $test_id = $self->upsert_test($test_obj);
+            $self->test_components($test_id, $test_obj, $test_href);
+        }
+        my $tfoot_divs = $self->{tree}->findnodes('/html/body//tfoot/div');
+        last if (!defined($tfoot_divs) || !scalar(@$tfoot_divs));
+        if ($tfoot_divs->[1]->as_trimmed_text ne "Next") {
+            print "unexpected tfoot navigation. No active or inactive Next";
+            last;
+        }
+        last if (!defined($tfoot_divs->[1]->look_down('_tag', 'a')));
+        $pg++;
+    }
+}
+
+sub test_components {
+    my ($self, $test_id, $test, $href) = @_;
+
+    my $get_url = URI->new_abs($href, $self->{resp}->base());
+    $self->{resp} = $self->ua_get($get_url);
+    $self->{tree} = HTML::TreeBuilder::XPath->new_from_content($self->{resp}->decoded_content);
+
+    my $test_components_record = {userTestId => $test_id};
+    if ($test->{testName} =~ m/^XR/ || $test->{testName} =~ m/^CT/) {
+        $test_components_record->{testType} = 'imaging';
+    } else {
+        $test_components_record->{testType} = 'lab';
+    }
+
+    $self->do_components($test_components_record);
+    $self->do_narrative($test_components_record);
+    $self->do_impression($test_components_record);
+    $self->do_general($test_components_record);
+
+    $self->add_test_components($test_components_record);
 }
 
 sub postprocess {

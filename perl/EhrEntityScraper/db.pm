@@ -27,31 +27,60 @@ sub upsert_provider {
     my $sth;
 
     my $provider_id = $self->get_provider_id($data);
-    return $provider_id if (defined($provider_id));
 
     $sth = $self->{dbh}->prepare("insert into providers(" .
-                                 "status, email, emailHash, firstName, lastName, fullName, photo, address1, address2, city, state, zipcode, " .
-                                 "timeZone, updated, created" .
+                                 "status, email, emailHash, firstName, lastName, fullName, sex, photo, address1, address2, city, state, zipcode, " .
+                                 "timeZone, phone, specialty, language " .
                                  ") " .
                                  "values(" .
-                                 "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, " .
-                                 "?, ?, ?" .
-                                 ")");
-    $sth->bind_param(1,   'A');                   # XXX always active?
+                                 "?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?" .
+                                 ") on duplicate key update status=?, email=?, emailHash=?, " .
+                                 "firstName=?, lastName=?, fullName=?, sex=?, " .
+                                 "photo=?, address1=?, address2=?, city=?, " . 
+                                 "state=?, zipcode=?, timeZone=?, phone=?, " .
+                                 "specialty=?, language=?");
+    $sth->bind_param(1,   'A');
     $sth->bind_param(2,   $data->{email});
     $sth->bind_param(3,   undef);
     $sth->bind_param(4,   $data->{firstName});
     $sth->bind_param(5,   $data->{lastName});
     $sth->bind_param(6,   $data->{fullName});
-    $sth->bind_param(7,   $data->{photo});
-    $sth->bind_param(8,   $data->{address1});
-    $sth->bind_param(9,   $data->{address2});
-    $sth->bind_param(10,  $data->{city});
-    $sth->bind_param(11,  $data->{state});
-    $sth->bind_param(12,  $data->{zipcode});
+    $sth->bind_param(7,   $data->{sex});
+    $sth->bind_param(8,   $data->{photo});
+    $sth->bind_param(9,   $data->{address1});
+    $sth->bind_param(10,   $data->{address2});
+    $sth->bind_param(11,  $data->{city});
+    $sth->bind_param(12,  $data->{state});
+    $sth->bind_param(13,  $data->{zipcode});
+    $sth->bind_param(14,  $data->{timeZone});
+    $sth->bind_param(15,  $data->{phone});
+    $sth->bind_param(16,  $data->{specialty});
+    $sth->bind_param(17,  $data->{language});
+    $sth->bind_param(18,   'A');
+    $sth->bind_param(19,   $data->{email});
+    $sth->bind_param(20,   undef);
+    $sth->bind_param(21,   $data->{firstName});
+    $sth->bind_param(22,   $data->{lastName});
+    $sth->bind_param(23,   $data->{fullName});
+    $sth->bind_param(24,   $data->{sex});
+    $sth->bind_param(25,   $data->{photo});
+    $sth->bind_param(26,   $data->{address1});
+    $sth->bind_param(27,   $data->{address2});
+    $sth->bind_param(28,  $data->{city});
+    $sth->bind_param(29,  $data->{state});
+    $sth->bind_param(30,  $data->{zipcode});
+    $sth->bind_param(31,  $data->{timeZone});
+    $sth->bind_param(32,  $data->{phone});
+    $sth->bind_param(33,  $data->{specialty});
+    $sth->bind_param(34,  $data->{language});
 
     $sth->execute;
-    return $sth->{mysql_insertid};
+
+    if (defined($provider_id)) {
+        return $provider_id;
+    } else {
+        return $sth->{mysql_insertid};
+    }
 }
 
 sub get_test_id {

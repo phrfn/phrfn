@@ -42,7 +42,7 @@ sub initialize {
     @$self{keys %$args_hash} = values %$args_hash;
     $self->{dbh} = DBI->connect ('dbi:mysql:database=phr', 'root', 'root', {RaiseError => 1, AutoCommit => 1});
 
-    $self->set_canned_config({save_to_canned => defined($args_hash->{save_to_canned})? $args_hash->{save_to_canned} : 0,
+    $self->set_canned_config({save_to_canned => defined($args_hash->{save_to_canned})? $args_hash->{save_to_canned} : 1,
                               read_from_canned => defined($args_hash->{read_from_canned})? $args_hash->{read_from_canned} : 0});
 
     $self->{canned_dir}      = "/var/tmp/canned-ehr-entity-scraper";
@@ -97,16 +97,16 @@ sub ua_post {
     my ($self, $url, $post_params) = @_;
     my $resp;
 
-    if ($self->{read_from_canned}) {
-        $resp = $self->read_from_canned("POST", $url, $post_params);
-        return $resp if(defined($resp));
-    }
+    # if ($self->{read_from_canned}) {
+    #     $resp = $self->read_from_canned("POST", $url, $post_params);
+    #     return $resp if(defined($resp));
+    # }
 
     $resp = $self->{ua}->post($url, $post_params);
     die "post failed. url: $url post_params: $post_params" if (!$resp->is_success);
-    if ($self->{save_to_canned}) {
-        $self->save_to_canned($url, $resp);
-    }
+    # if ($self->{save_to_canned}) {
+    #     $self->save_to_canned($url, $resp);
+    # }
     return $resp;
 }
 

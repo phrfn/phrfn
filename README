@@ -3,20 +3,20 @@
 2. Ubuntu 12.04 LTS on AWS needs mysqld and some packages to be installed.  See INSTALL.
 
 3. cd <dir>perl
-   ./server.pl <host> <port>
-   Default is host=localhost port=9080
+   ./server.pl <port>  
+   Default is 9080.  When running on port 80 run: sudo ./server.pl
 
 5. Using a browser go to:
-   http://<host>:<port>/scrape/<user_email>/<ehr_entity>
+   http://<hosting-server>:<port>/scrape/<user_email>/<ehr_entity>
 
    e.g.
    http://localhost:9080/scrape/evanwrichardson@gmail.com/Stanford OR
    http://localhost:9080/scrape/evanwrichardson@gmail.com/PAMF
 
-   This blocks till the fetch is complete.  To do it in the background, do:
+   This is blocking call and blocks till the fetch is complete.  To do it in the background,
+   add a bg parameter like this:
 
-   http://localhost:9080/scrape/evanwrichardson@gmail.com/Stanford/?bg=1 OR
-   http://localhost:9080/scrape/evanwrichardson@gmail.com/PAMF/?bg=1
+   http://<hosting-server>:<port>/scrape/evanwrichardson@gmail.com/PAMF/?bg=1
 
 6. To reset the database state, run at mysql client prompt:
    cd <dir>/sql

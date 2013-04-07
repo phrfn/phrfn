@@ -281,10 +281,10 @@ sub provider_visits {
             my $detail1 = $self->{tree2}->findnodes('/html/body//div[@class="report"]/table/tr');
             # die "invalid PAMF visit details page" if (scalar(@$detail1) != 11);
 
-            my ($provider, $reason_for_visit, $visit_type);
+            my ($provider_id, $reason_for_visit, $visit_type);
 
             @tds = $detail1->[0]->look_down('_tag', 'td', 'class', 'cdata');
-            $provider = trim_undef($tds[2]->as_trimmed_text);
+            $provider_id = $self->process_provider_td($tds[2]);
             @tds = $detail1->[1]->look_down('_tag', 'td', 'class', 'cdata');
             $reason_for_visit = trim_undef($tds[0]->as_trimmed_text);
             $visit_type = trim_undef($tds[1]->as_trimmed_text);
@@ -298,7 +298,7 @@ sub provider_visits {
 
             $visit_details_obj->{userVisitId} = $visit_id;
             $visit_details_obj->{visitTimestamp} = $visit_obj->{visitDateTime};
-            $visit_details_obj->{providerId} = $self->upsert_provider({fullName => $provider});
+            $visit_details_obj->{providerId} = $provider_id;
             $visit_details_obj->{reason_for_visit} = $reason_for_visit;
             $visit_details_obj->{visitType}  = $visit_type;
 
@@ -345,6 +345,60 @@ sub provider_visits {
         last if (!defined($tfoot_divs->[1]->look_down('_tag', 'a')));
         $pg++;
     }
+}
+
+sub process_provider_td {
+    my ($self, $td) = @_;
+    my ($ret, $obj) = (undef, {});
+    my ($uri, $resp, $tree, $div);
+
+    return undef if (!defined($td));
+    $obj = {fullName => trim($td->as_trimmed_text)};
+
+    my @as = $td->look_down('_tag', 'a');
+    if (scalar(@as)) {
+        $uri = URI->new_abs($as[0]->attr('href'), $self->{resp}->base());
+        $resp = $self->ua_get($uri);
+        $tree = HTML::TreeBuilder::XPath->new_from_content($resp->decoded_content);
+        $div = $tree->findnodes('/html/body//div[@id="main"]');
+
+        if (defined($div) && defined($div->[0])) {
+            my @h3s = $div->[0]->look_down('_tag', 'h3');
+            my @ps  = $div->[0]->look_down('_tag', 'p');
+
+            if (scalar(@h3s) == scalar(@ps)) {
+                for (my $i = 0; $i < scalar(@ps); ++$i) {
+                    if (trim($h3s[$i]->as_trimmed_text) =~ m/Sex/) {
+                        $obj->{sex} = ($ps[$i]->as_trimmed_text =~ m/Female/)? 'F' : 'M';
+                    }
+                    if (trim($h3s[$i]->as_trimmed_text) =~ m/Address/) {
+                        $obj->{address1} = trim($ps[$i]->as_trimmed_text);
+                    }
+                    if (trim($h3s[$i]->as_trimmed_text) =~ m/City/) {
+                        $obj->{city} = trim($ps[$i]->as_trimmed_text);
+                    }
+                    if (trim($h3s[$i]->as_trimmed_text) =~ m/State/) {
+                        $obj->{state} = trim($ps[$i]->as_trimmed_text);
+                    }
+                    if (trim($h3s[$i]->as_trimmed_text) =~ m/Zip/) {
+                        $obj->{zipCode} = trim($ps[$i]->as_trimmed_text);
+                    }
+                    if (trim($h3s[$i]->as_trimmed_text) =~ m/Phone/) {
+                        $obj->{phone} = trim($ps[$i]->as_trimmed_text);
+                    }
+                    if (trim($h3s[$i]->as_trimmed_text) =~ m/Specialty/) {
+                        $obj->{specialty} = trim($ps[$i]->as_trimmed_text);
+                    }
+                    if (trim($h3s[$i]->as_trimmed_text) =~ m/Language/) {
+                        $obj->{language} = trim($ps[$i]->as_trimmed_text);
+                    }
+                }
+            }
+        }
+    }
+
+    $ret = $self->upsert_provider($obj);
+    return $ret;
 }
 
 sub do_visit_vitals {

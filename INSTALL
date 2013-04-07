@@ -1,4 +1,5 @@
    You need to install the following on the ec2 ubuntu 12.04 stock image:
+
    1) mysql
    sudo apt-get install mysql-server
 
@@ -9,5 +10,9 @@
    sudo apt-get install libjson-perl
 
    3) (for aws) open the incoming port on which you decide to run the server.
+
+   4) Allow incoming mysql client access (applies for both cli and the front-end webapp):
+              a) open mysql default port (3306) on aws for incoming connections.
+              b) adapt this to do your own mysql config: http://benrobb.com/2007/01/15/howto-remote-root-access-to-mysql/
 
    That's it.

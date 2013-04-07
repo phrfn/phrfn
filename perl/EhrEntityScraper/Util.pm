@@ -94,6 +94,7 @@ sub trim {
     $string =~ s/^\s+//;
     $string =~ s/\s+$//;
     $string =~ s/\240//g;
+    $string =~ s/\x{a0}//g;
     return $string;
 }
 

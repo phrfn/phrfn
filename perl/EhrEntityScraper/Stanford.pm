@@ -48,7 +48,7 @@ sub hospital_visits {
             $visit_obj->{visitDateTime}      = forward_slash_datetime(trim_undef($tds[0]->as_trimmed_text));
             $visit_obj->{departmentOrClinic} = trim_undef($tds[2]->as_trimmed_text);
             $visit_obj->{providerType}       = "inpatient";
-            $visit_obj->{dischargeDateTime}  = forward_slash_datetime(trim_undef($tds[0]->as_trimmed_text));
+            $visit_obj->{dischargeDateTime}  = forward_slash_datetime(trim_undef($tds[1]->as_trimmed_text));
 
             my $visit_id = $self->upsert_user_visit($visit_obj);
         }

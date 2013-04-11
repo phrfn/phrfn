@@ -111,7 +111,7 @@ sub upsert_test {
                                     ") " .
                                     "values(" .
                                     "?, ?, ?, ?, ?" .
-                                    ")");
+                                    ") on duplicate key update userId=?, ehrEntityId=?, testName=?, dateOrdered=?, providerId=?");
 
 
     $sth->bind_param(1,  $self->{user_id});
@@ -119,6 +119,11 @@ sub upsert_test {
     $sth->bind_param(3,  $data->{testName});
     $sth->bind_param(4,  $data->{dateOrdered});
     $sth->bind_param(5,  $data->{providerId});
+    $sth->bind_param(6,  $self->{user_id});
+    $sth->bind_param(7,  $self->{ehr_entity_id});
+    $sth->bind_param(8,  $data->{testName});
+    $sth->bind_param(9,  $data->{dateOrdered});
+    $sth->bind_param(10,  $data->{providerId});
 
     $sth->execute;
     return $sth->{mysql_insertid};

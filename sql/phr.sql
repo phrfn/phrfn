@@ -479,7 +479,7 @@ CREATE TABLE IF NOT EXISTS user_tests (
   foreign key (userId) references users(id),
   foreign key (ehrEntityId) references ehr_entities(id),
   foreign key (providerId) references providers(id),
-  UNIQUE KEY test_UNIQUE (userId, ehrEntityId, testName, providerId, dateOrdered),
+  UNIQUE KEY test_UNIQUE (userId, ehrEntityId, testName, dateOrdered),
   PRIMARY KEY (id)
 ) ENGINE=InnoDB;
 
